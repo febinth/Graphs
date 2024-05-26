@@ -120,15 +120,93 @@ adjMatrixW weightedEdges = buildWeightedAdjMatrix n weightedEdges
       | row == x && col == y = Just w
       | otherwise = findEdgeWeight (row, col) rest
 
--- -- DIJKSTRA'S ALGORITHM
+-- DIJKSTRA'S ALGORITHM
 
--- {- 
---    Given an adjacencly list al and a source vertex s
---    return the list of minimum distances of vertices from s:
---    (dijkstra al s)!!j is the minimum distance from s to j
--- -}
+{- 
+   Given an adjacencly list al and a source vertex s
+   return the list of minimum distances of vertices from s:
+   (dijkstra al s)!!j is the minimum distance from s to j
+-}
 
--- dijkstra :: WAdjList -> Int -> [Maybe Float]
+-- PriorityQueue is a list of tuples, each containing a vertex and its distance.
+type PriorityQueue = [(Int, Maybe Float)]
+
+-- Insert a vertex with its distance into the priority queue.
+insert :: (Int, Maybe Float) -> PriorityQueue -> PriorityQueue
+insert item pq = item : pq
+
+-- Extracts the minimum priority element from a priority queue and returns it along with the updated priority queue.
+extractMin :: PriorityQueue -> ((Int, Maybe Float), PriorityQueue)
+extractMin pq = case removeMin pq Nothing of
+                  (Just minItem, _) -> (minItem, filter (/= minItem) pq)
+                  (Nothing, _) -> error "Priority Queue is empty"
+  where
+    -- Helper function to find the minimum element in the priority queue.
+    removeMin :: PriorityQueue -> Maybe (Int, Maybe Float) -> (Maybe (Int, Maybe Float), PriorityQueue)
+    removeMin [] currentMin = (currentMin, [])
+    removeMin (x:xs) Nothing = removeMin xs (Just x)
+    removeMin (x:xs) (Just currentMin@(v1, d1))
+      | snd x < d1 = removeMin xs (Just x)          -- If the current element's distance is less than the current minimum distance, update the minimum.
+      | otherwise = removeMin xs (Just currentMin)  -- Otherwise, continue with the current minimum.
+
+
+-- Update the distance of a specific vertex in the priority queue.
+decreaseKey :: Int -> Maybe Float -> PriorityQueue -> PriorityQueue
+decreaseKey vertex newDist pq = map update pq
+  where
+    update (v, dist)  
+      | v == vertex = (v, min newDist dist) -- Update the priority of the specificed vertex
+      | otherwise   = (v, dist)
+
+-- Initialize the priority queue with all vertices, setting the source vertex's distance to 0
+-- and all others to infinity.
+initializePQ :: Int -> Int -> PriorityQueue
+initializePQ numVertices source = [(i, if i == source then Just 0 else Just (1/0)) | i <- [0..numVertices - 1]]
+
+-- Initialize the distances for all vertices, setting the source vertex's distance to 0
+-- and all others to infinity.
+initializeDistances :: Int -> Int -> [Maybe Float]
+initializeDistances numVertices source = [if i == source then Just 0 else Just (1/0) | i <- [0..numVertices - 1]]
+
+dijkstra :: WAdjList -> Int -> [Maybe Float]
+dijkstra graph source = finalize ( dijkstra' (initializePQ (length graph) source) (initializeDistances (length graph) source) ) -- Num of vertices = length of adj list
+  where
+    dijkstra' :: PriorityQueue -> [Maybe Float] -> [Maybe Float]
+    dijkstra' [] dists = dists
+    dijkstra' pq dists = 
+      let ((u, Just distU), pq') = extractMin pq                                              -- Extract the minimum priority tuple from the Priority Queue
+          neighbors = graph !! u                                                              -- Get the neighbors of current vertex u
+      in dijkstra' (foldl (updatePQ distU) pq' neighbors) (updateDists distU dists neighbors) -- Update both the priority queue and the distances
+
+    -- This function updates the Priority Queue using decreaseKey
+    updatePQ :: Float -> PriorityQueue -> (Int, Float) -> PriorityQueue
+    updatePQ distU pq (v, weight) = decreaseKey v (Just (distU + weight)) pq
+
+    -- This function updates the distances list with the minimum distance
+    updateDists :: Float -> [Maybe Float] -> [(Int, Float)] -> [Maybe Float]
+    updateDists distU dists neighbors = foldl update dists neighbors
+      where
+        update dists' (v, weight) = replaceNthDistance v (calculateNewDist v distU weight dists') dists'
+
+    -- Calculate the new distance for a given neighbor
+    calculateNewDist :: Int -> Float -> Float -> [Maybe Float] -> Maybe Float
+    calculateNewDist v distU weight dists = 
+      let oldDist = retreiveMaybe (dists !! v) -- Fetch the old distance of u to v from the distances list
+          newDist = distU + weight             -- Calculate the new distance as sum of the distance to reach u and the weight of the edge from u to v
+      in Just (min newDist oldDist)            -- Take the minimum of newDist and oldDist
+
+    -- Replaces the distance at a specified index with a new value
+    replaceNthDistance :: Int -> Maybe Float -> [Maybe Float] -> [Maybe Float]
+    replaceNthDistance targetIndex newValue distancesList = take targetIndex distancesList ++ [newValue] ++ drop (targetIndex + 1) distancesList
+
+    -- Convert Infinity to Nothing, to represent the vertices which have no incoming path
+    finalize :: [Maybe Float] -> [Maybe Float]
+    finalize = map (\x -> if x == Just (1/0) then Nothing else x)
+    
+    -- This function returns just the value or infinity depending on the distance (type Mayvbe) 
+    retreiveMaybe :: Maybe Float -> Float
+    retreiveMaybe (Just x) = x
+    retreiveMaybe Nothing = 1/0
 
 -- -- FLOYD-WARSHALL ALGORITHM
 
