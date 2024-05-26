@@ -56,38 +56,69 @@ adjMatrix edges = buildAdjMatrix n edges
 
 --------------------------------------------------------
 
--- -- WEIGHTED GRAPHS: every edge has a "weight"
+-- WEIGHTED GRAPHS: every edge has a "weight"
 
--- {- In an adjacency list al, the i-th element al!!i
---    contains all the pairs (j,w) such that
---    there is an edge from i to j with weight w
--- -}
+{- In an adjacency list al, the i-th element al!!i
+   contains all the pairs (j,w) such that
+   there is an edge from i to j with weight w
+-}
 
--- type WAdjList = [[(Int,Float)]]
+type WAdjList = [[(Int,Float)]]
 
--- {- In an adjacency matrix am, the element with
---    coordinates i,j is
---      Nothing if there is no edge from i to j
---      (Just w) if there is an edge from i to j with weight w
--- -}
+{- In an adjacency matrix am, the element with
+   coordinates i,j is
+     Nothing if there is no edge from i to j
+     (Just w) if there is an edge from i to j with weight w
+-}
 
--- type WAdjMatrix = [[Maybe Float]]
+type WAdjMatrix = [[Maybe Float]]
 
--- {- We can also represent a weighted graphs by a list of edges
---    (i,j,w) denotes an edge from i to j with weight w
--- -}
+{- We can also represent a weighted graphs by a list of edges
+   (i,j,w) denotes an edge from i to j with weight w
+-}
 
--- type Edges = [(Int,Int,Float)]
+type Edges = [(Int,Int,Float)]
 
--- -- GENERATION OF ADJACENCY LIST
--- --   from a list of edges
+-- GENERATION OF ADJACENCY LIST
+--   from a list of edges
 
--- adjListW :: Edges -> WAdjList
+adjListW :: Edges -> WAdjList
+adjListW [] = []
+adjListW weightedEdges = buildAdjListW n weightedEdges
+  where
+    n = findMaxInWeightedEdges weightedEdges -- The adjacency list will contain as many entries as the max vertice value in the input list 
 
--- -- GENERATION OF ADJACENCY MATRIX
--- --   from a list of edges
+    buildAdjListW :: Int -> Edges -> WAdjList
+    buildAdjListW n weightedEdges = [ [(j,w) | (i, j, w) <- weightedEdges, i == index] | index <- [0..n] ]  -- For all edges, when there is an edge from i to j, add (j,w) to the list at index i
 
--- adjMatrixW :: Edges -> WAdjMatrix
+-- This function finds the max vertice value
+findMaxInWeightedEdges :: (Ord a) => [(a, a, b)] -> a
+findMaxInWeightedEdges [] = error "Empty list"
+findMaxInWeightedEdges ((x,y,_):xs) = maxHelper xs (max x y) -- Set the max of the 2 vertice values in the first tuple as the currentMax
+   where
+      maxHelper [] currentMax = currentMax
+      maxHelper ((a,b,_):rest) currentMax = maxHelper rest (max (max a b) currentMax) -- Recursively find the max by comparing max of each tuple with currentMax
+
+-- GENERATION OF ADJACENCY MATRIX
+--   from a list of edges
+
+adjMatrixW :: Edges -> WAdjMatrix
+adjMatrixW [] = []
+adjMatrixW weightedEdges = buildWeightedAdjMatrix n weightedEdges
+  where
+    n = findMaxInWeightedEdges weightedEdges
+
+    buildWeightedAdjMatrix :: Int -> Edges -> WAdjMatrix
+    -- For each position (rowIndex, colIndex), check if it is an element of the edges list and get its weight
+    buildWeightedAdjMatrix n edges = 
+      [ [ findEdgeWeight (rowIndex, colIndex) edges | colIndex <- [0..n]] | rowIndex <- [0..n] ] 
+
+    -- Function to find the weight of an edge, if it exists
+    findEdgeWeight :: (Int, Int) -> [(Int, Int, Float)] -> Maybe Float
+    findEdgeWeight _ [] = Nothing
+    findEdgeWeight (row, col) ((x, y, w):rest) 
+      | row == x && col == y = Just w
+      | otherwise = findEdgeWeight (row, col) rest
 
 -- -- DIJKSTRA'S ALGORITHM
 
