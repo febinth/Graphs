@@ -217,5 +217,32 @@ dijkstra graph source = finalize ( dijkstra' (initializePQ (length graph) source
 --      (Just x) if the shortest path from i to j has length x
 -- -}
 
--- floydWarshall :: WAdjMatrix -> WAdjMatrix
+floydWarshall :: WAdjMatrix -> WAdjMatrix
+floydWarshall matrix = foldl updateMatrix initializedMatrix [0..length matrix - 1] -- Call updateMatrix for each vertec k
+  where
+    initializedMatrix = initializeSelfDistances matrix
 
+    -- Initializes the diagonal of the matrix to Just 0, as the distance from a vertex to itself is 0
+    initializeSelfDistances :: WAdjMatrix -> WAdjMatrix
+    initializeSelfDistances m = 
+      [ [ if i == j then Just 0 else m !! i !! j | j <- [0..length m - 1] ] | i <- [0..length m - 1] ]
+
+    updateMatrix :: WAdjMatrix -> Int -> WAdjMatrix
+    updateMatrix m k = [ [ updateDistance m i j k | j <- [0..length m - 1] ] | i <- [0..length m - 1] ]
+
+    updateDistance :: WAdjMatrix -> Int -> Int -> Int -> Maybe Float
+    updateDistance m i j k =
+      let direct = m !! i !! j                              -- Consider the direct route from i to j
+          newRoute = addMaybes (m !! i !! k) (m !! k !! j)  -- Consider the route from i to k and k to j
+      in minMaybe direct newRoute                           -- Choose the minimum of the 2 routes
+
+    -- This function adds two Maybe Float values only if both are Just values, otherwise it returns Nothing.
+    addMaybes :: Maybe Float -> Maybe Float -> Maybe Float
+    addMaybes (Just x) (Just y) = Just (x + y) 
+    addMaybes _ _ = Nothing -- One of the paths might not exist therefore this routw cant be considered
+
+    -- This function finds the minimum of 2 Maybe float values
+    minMaybe :: Maybe Float -> Maybe Float -> Maybe Float
+    minMaybe Nothing y = y
+    minMaybe x Nothing = x
+    minMaybe (Just x) (Just y) = Just (min x y)
